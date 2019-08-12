@@ -20,20 +20,19 @@ namespace EFCore.AsCaching.ExpressionVisitors
             {
                 var genericMethodDefinition = node.Method.GetGenericMethodDefinition();
 
-                // find cachable query extention calls
                 if (genericMethodDefinition == EntityFrameworkQueryableExtensions.AsCachingMethodInfo)
                 {
                     // get parameter with "last one win"
                     _options = node.Arguments
                         .OfType<ConstantExpression>()
                         .Where(a => a.Value is CachingOptions)
-                        .Select(a => (CachingOptions)a.Value)
+                        .Select(a => (CachingOptions) a.Value)
                         .Last();
 
                     _asCaching = true;
 
                     // cut out extension expression
-                    return Visit(node.Arguments[0]);
+                    return Visit(node.Arguments[0]) ?? throw new InvalidOperationException();
                 }
             }
 
@@ -44,14 +43,14 @@ namespace EFCore.AsCaching.ExpressionVisitors
         /// Visit the query expression tree and find extract cachable parameter
         /// </summary>
         /// <param name="expression">Query expression</param>
-        /// <param name="isCacheable">Is expression marked as cacheable</param>
+        /// <param name="asCaching">Is expression marked as cacheable</param>
         /// <param name="timeToLive">Timespan befor expiration of cached query result</param>
         /// <returns></returns>
-        public virtual Expression GetExtractCachableParameter(Expression expression, out Boolean isCacheable, out CachingOptions options)
+        public virtual Expression GetExtractAsCachingParameter(Expression expression, out Boolean asCaching, out CachingOptions options)
         {
             var visitedExpression = Visit(expression);
 
-            isCacheable = _asCaching;
+            asCaching = _asCaching;
             options = _options;
 
             return visitedExpression;

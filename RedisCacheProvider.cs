@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -6,13 +9,43 @@ using StackExchange.Redis;
 
 namespace EFCore.AsCaching
 {
+    public class RoundRobinList<T>
+    {
+        private readonly IList<T> _list;
+        private int _size;
+        private int _position;
+
+        public RoundRobinList()
+        {
+            _list = new List<T>();
+            _size = _list.Count;
+        }
+
+        public T Next()
+        {
+            if (_size == 1)
+                return _list[0];
+
+            Interlocked.Increment(ref _position);
+            var mod = _position % _size;
+            return _list[mod];
+        }
+
+        public void Add(T value)
+        {
+            _list.Add(value);
+            _size = _list.Count;
+        }
+    }
+
     public class RedisCacheProvider : ICacheProvider
     {
         static readonly SemaphoreSlim SemaphoreSlim = new SemaphoreSlim(1, 1);
 
-        private readonly ConnectionMultiplexer _connectionMultiplexer;
-        private IDatabase Db => _connectionMultiplexer.GetDatabase();
+        public IDatabase Db => _connectionMultiplexersPool.Next().GetDatabase();
         private readonly JsonSerializerSettings _jsonSerializerSettings;
+
+        private readonly RoundRobinList<ConnectionMultiplexer> _connectionMultiplexersPool = new RoundRobinList<ConnectionMultiplexer>();
 
         public RedisCacheProvider(string connectionString) : this(connectionString, new JsonSerializerSettings())
         {
@@ -21,7 +54,16 @@ namespace EFCore.AsCaching
 
         public RedisCacheProvider(string connectionString, JsonSerializerSettings jsonSerializerSettings)
         {
-            _connectionMultiplexer = ConnectionMultiplexer.Connect(connectionString);
+            var connectionMultiplexer = ConnectionMultiplexer.ConnectAsync(connectionString).GetAwaiter().GetResult();
+            _connectionMultiplexersPool.Add(connectionMultiplexer);
+
+//            Parallel.For(0, 100, num =>
+//            {
+//                var connectionMultiplexer = ConnectionMultiplexer.ConnectAsync(connectionString).GetAwaiter().GetResult();
+//                _connectionMultiplexersPool.Add(connectionMultiplexer);
+//            });
+
+
             _jsonSerializerSettings = jsonSerializerSettings;
         }
 
@@ -30,20 +72,14 @@ namespace EFCore.AsCaching
         {
             var value = Db.StringGet(key);
 
-            if (value.HasValue)
-                return JsonConvert.DeserializeObject<TEntity>(value);
-
-            return default;
+            return value.HasValue ? JsonConvert.DeserializeObject<TEntity>(value) : default;
         }
 
         public async Task<TEntity> GetAsync<TEntity>(string key)
         {
             var value = await Db.StringGetAsync(key);
 
-            if (value.HasValue)
-                return JsonConvert.DeserializeObject<TEntity>(value, _jsonSerializerSettings);
-
-            return default;
+            return value.HasValue ? JsonConvert.DeserializeObject<TEntity>(value, _jsonSerializerSettings) : default;
         }
 
         public TEntity Set<TEntity>(string key, TEntity value, TimeSpan? expiry = null)
@@ -62,9 +98,10 @@ namespace EFCore.AsCaching
 
         public TEntity FetchObject<TEntity>(string key, Func<TEntity> func, TimeSpan? expiry = null)
         {
-            var value = Get<TEntity>(key);
-            if (value != null)
-                return value;
+            var value = Db.StringGet(key);
+
+            if (value.HasValue)
+                return JsonConvert.DeserializeObject<TEntity>(value);
 
             var result = func.Invoke();
 
@@ -73,9 +110,10 @@ namespace EFCore.AsCaching
 
         public async Task<TEntity> FetchObjectAsync<TEntity>(string key, Func<Task<TEntity>> func, TimeSpan? expiry = null)
         {
-            var value = await GetAsync<TEntity>(key);
-            if (value != null)
-                return value;
+            var value = await Db.StringGetAsync(key);
+
+            if (value.HasValue)
+                return JsonConvert.DeserializeObject<TEntity>(value);
 
             var result = await func.Invoke();
 
@@ -84,12 +122,42 @@ namespace EFCore.AsCaching
 
         public TEntity FetchObjectWithLock<TEntity>(string key, Func<TEntity> func, TimeSpan? expiry = null)
         {
-            throw new NotImplementedException();
+            SemaphoreSlim.Wait();
+            try
+            {
+                var value = Db.StringGet(key);
+
+                if (value.HasValue)
+                    return JsonConvert.DeserializeObject<TEntity>(value);
+
+                var result = func.Invoke();
+
+                return Set(key, result, expiry);
+            }
+            finally
+            {
+                SemaphoreSlim.Release();
+            }
         }
 
-        public Task<TEntity> FetchObjectWithLockAsync<TEntity>(string key, Func<Task<TEntity>> func, TimeSpan? expiry = null)
+        public async Task<TEntity> FetchObjectWithLockAsync<TEntity>(string key, Func<Task<TEntity>> func, TimeSpan? expiry = null)
         {
-            throw new NotImplementedException();
+            await SemaphoreSlim.WaitAsync();
+            try
+            {
+                var value = await Db.StringGetAsync(key);
+
+                if (value.HasValue)
+                    return JsonConvert.DeserializeObject<TEntity>(value);
+
+                var result = await func.Invoke();
+
+                return await SetAsync(key, result, expiry);
+            }
+            finally
+            {
+                SemaphoreSlim.Release();
+            }
         }
 
         public bool KeyExists(string key)

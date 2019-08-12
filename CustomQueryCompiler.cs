@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Data.HashFunction.xxHash;
 using System.Linq;
 using System.Linq.Expressions;
@@ -58,35 +60,31 @@ namespace EFCore.AsCaching
         public override IAsyncEnumerable<TResult> ExecuteAsync<TResult>(Expression query)
         {
             var asCachingExpressionVisitor = new AsCachingExpressionVisitor();
-            query = asCachingExpressionVisitor.GetExtractCachableParameter(query, out bool asCaching, out CachingOptions options);
+            query = asCachingExpressionVisitor.GetExtractAsCachingParameter(query, out bool asCaching, out CachingOptions options);
 
             if (!asCaching)
                 return base.ExecuteAsync<TResult>(query);
 
             var cacheKey = GetCacheKey(query);
 
-
-            if (_cacheProvider.KeyExists(cacheKey))
-                return _cacheProvider.Get<IEnumerable<TResult>>(cacheKey).ToAsyncEnumerable();
-
-            var result = base.ExecuteAsync<TResult>(query).ToEnumerable().ToList();
-
-            //Locking procedure goes here
-            var resultOfCaching = _cacheProvider.Set(cacheKey, result, options.Expiry);
-
-            return resultOfCaching.ToAsyncEnumerable();
+            var valuesTask = _cacheProvider.FetchObjectWithLockAsync(cacheKey, () => base.ExecuteAsync<TResult>(query).ToList(), options.Expiry);
+            
+            //Tricky implementation with custom implementation of AsyncEnumerable with by pass async function inside async iterator, and make code path async all the way down 
+            //If execute in current block, we can't await here, and any wait method will blocks thread. 
+            return new MyAsyncEnumerable<TResult>(valuesTask);
         }
 
         public override TResult Execute<TResult>(Expression query)
         {
             var asCachingExpressionVisitor = new AsCachingExpressionVisitor();
-            query = asCachingExpressionVisitor.GetExtractCachableParameter(query, out bool asCaching, out CachingOptions options);
+            query = asCachingExpressionVisitor.GetExtractAsCachingParameter(query, out bool asCaching, out CachingOptions options);
 
             if (!asCaching)
                 return base.Execute<TResult>(query);
 
 
             var cacheKey = GetCacheKey(query);
+
 
             if (_cacheProvider.KeyExists(cacheKey))
                 return _cacheProvider.Get<TResult>(cacheKey);
@@ -100,7 +98,7 @@ namespace EFCore.AsCaching
         public override async Task<TResult> ExecuteAsync<TResult>(Expression query, CancellationToken cancellationToken)
         {
             var asCachingExpressionVisitor = new AsCachingExpressionVisitor();
-            query = asCachingExpressionVisitor.GetExtractCachableParameter(query, out bool asCaching, out CachingOptions options);
+            query = asCachingExpressionVisitor.GetExtractAsCachingParameter(query, out bool asCaching, out CachingOptions options);
 
             if (!asCaching)
                 return await base.ExecuteAsync<TResult>(query, cancellationToken);
@@ -121,5 +119,53 @@ namespace EFCore.AsCaching
             var hashOfQuery = _xxHash.ComputeHash(Encoding.UTF8.GetBytes(resultQuery.ToString()));
             return hashOfQuery.AsBase64String();
         }
+    }
+
+    public class MyAsyncEnumerable<T> : IAsyncEnumerable<T>
+    {
+        private readonly Task<List<T>> _task;
+
+        public MyAsyncEnumerable(Task<List<T>> task)
+        {
+            _task = task;
+        }
+
+        public IAsyncEnumerator<T> GetEnumerator()
+        {
+            return new MyAsyncEnumerator<T>(_task);
+        }
+    }
+
+    public class MyAsyncEnumerator<T> : IAsyncEnumerator<T>
+    {
+        private readonly Task<List<T>> _task;
+        private ConcurrentStack<T> _valuesCollection;
+
+        public MyAsyncEnumerator(Task<List<T>> task)
+        {
+            _task = task;
+        }
+
+        public void Dispose()
+        {
+        }
+
+        public async Task<bool> MoveNext(CancellationToken cancellationToken)
+        {
+            if (_valuesCollection == null)
+                _valuesCollection = new ConcurrentStack<T>(await _task);
+
+            if (_valuesCollection == null)
+                throw new InvalidOperationException();
+
+            if (!_valuesCollection.TryPop(out var value))
+                return false;
+
+            Current = value;
+            return true;
+        }
+
+
+        public T Current { get; private set; }
     }
 }
