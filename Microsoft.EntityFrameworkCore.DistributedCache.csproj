@@ -3,13 +3,13 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <LangVersion>7.2</LangVersion>
-    <Version>1.0.0</Version>
+    <Version>1.0.3</Version>
     <PackageId>Extention.Microsoft.EntityFrameworkCore.DistributedCache</PackageId>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageTags>EntityFrameworkCore Entity Framework Core EFCore EF Core DistributedRedisCache DistributedCache Distributed Cache extensions</PackageTags>
     <RepositoryUrl>https://github.com/grinay/Microsoft.EntityFrameworkCore.DistributedCache</RepositoryUrl>
     <PackageProjectUrl>https://github.com/grinay/Microsoft.EntityFrameworkCore.DistributedCache</PackageProjectUrl>
-    <PackageVersion>1.0.2</PackageVersion>
+    <PackageVersion>1.0.3</PackageVersion>
   </PropertyGroup>
   
 
