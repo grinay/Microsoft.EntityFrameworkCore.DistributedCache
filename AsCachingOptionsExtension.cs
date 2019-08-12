@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace EFCore.AsCaching
+namespace EntityFramework.DistributedCache
 {
     public class AsCachingOptionsExtension : IDbContextOptionsExtension
     {
@@ -26,10 +26,7 @@ namespace EFCore.AsCaching
         public void Validate(IDbContextOptions options)
         {            
         }
-
-        /// <summary>
-        ///     The option set from the <see cref="DbContextOptionsBuilder.UseSecondLevelMemoryCache" /> method.
-        /// </summary>
+        
         public virtual ICacheProvider CacheProvider => _cacheProvider;
     }
 }

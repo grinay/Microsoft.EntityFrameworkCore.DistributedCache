@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace EFCore.AsCaching
+namespace EntityFramework.DistributedCache
 {
     /// <summary>
     /// Helper class to check parameter.

@@ -5,7 +5,7 @@ using System.Reflection;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.Internal;
 
-namespace EFCore.AsCaching.Extensions
+namespace EntityFramework.DistributedCache.Extensions
 {
     public static class EntityFrameworkQueryableExtensions
     {

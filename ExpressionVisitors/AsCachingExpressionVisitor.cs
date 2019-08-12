@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Linq;
 using System.Linq.Expressions;
-using EntityFrameworkQueryableExtensions = EFCore.AsCaching.Extensions.EntityFrameworkQueryableExtensions;
+using EntityFrameworkQueryableExtensions = EntityFramework.DistributedCache.Extensions.EntityFrameworkQueryableExtensions;
 
-namespace EFCore.AsCaching.ExpressionVisitors
+namespace EntityFramework.DistributedCache.ExpressionVisitors
 {
     public class AsCachingExpressionVisitor : ExpressionVisitor
     {

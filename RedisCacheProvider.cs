@@ -1,13 +1,10 @@
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using StackExchange.Redis;
 
-namespace EFCore.AsCaching
+namespace EntityFramework.DistributedCache
 {
     public class RedisCacheProvider : ICacheProvider
     {

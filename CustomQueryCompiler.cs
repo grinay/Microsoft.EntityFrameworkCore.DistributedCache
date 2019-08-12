@@ -7,7 +7,7 @@ using System.Linq.Expressions;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using EFCore.AsCaching.ExpressionVisitors;
+using EntityFramework.DistributedCache.ExpressionVisitors;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -17,7 +17,7 @@ using Microsoft.EntityFrameworkCore.Query.Internal;
 using Microsoft.EntityFrameworkCore.Storage;
 using Remotion.Linq.Parsing.ExpressionVisitors.TreeEvaluation;
 
-namespace EFCore.AsCaching
+namespace EntityFramework.DistributedCache
 {
     /// <summary>
     /// Extended <see cref="QueryCompiler"/> to handle query caching.
