@@ -1,5 +1,6 @@
 [![Build Status](https://grinay.visualstudio.com/Microsoft.EntityFrameworkCore.DistributedCache/_apis/build/status/Microsoft.EntityFrameworkCore.DistributedCache-CI?branchName=master)](https://grinay.visualstudio.com/Microsoft.EntityFrameworkCore.DistributedCache/_build/latest?definitionId=6&branchName=master)
 [![NuGet Status](http://img.shields.io/nuget/v/Extention.Microsoft.EntityFrameworkCore.DistributedCache.svg?style=flat)](https://www.nuget.org/packages/Extention.Microsoft.EntityFrameworkCore.DistributedCache/)   
+[![NuGet Status](http://img.shields.io/nuget/dt/Extention.Microsoft.EntityFrameworkCore.DistributedCache.svg?style=flat)](https://www.nuget.org/packages/Extention.Microsoft.EntityFrameworkCore.DistributedCache/)   
 
 # Microsoft.EntityFrameworkCore.DistributedCache
 Entity Framework Core Distributed Cache with Redis with fully support for asynchronous environments. That increase performance drastically.
