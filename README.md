@@ -21,7 +21,8 @@ public void ConfigureServices(IServiceCollection services) {
 }
 ```
 
-#Caching queries
+# Caching queries
+
 By default all caching queries are use distributed lock between each nodes, to order only those instance(node,server) and thread who first acquire lock, will setup cache for this request. 
 
 ```csharp
