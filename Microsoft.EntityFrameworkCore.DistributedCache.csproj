@@ -3,11 +3,16 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
     <LangVersion>7.2</LangVersion>
+    <Version>1.0.0</Version>
+    <PackageId>Extention.Microsoft.EntityFrameworkCore.DistributedCache</PackageId>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>EntityFrameworkCore Entity Framework Core EFCore EF Core DistributedRedisCache DistributedCache Distributed Cache extensions</PackageTags>
+    <RepositoryUrl>https://github.com/grinay/Microsoft.EntityFrameworkCore.DistributedCache</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/grinay/Microsoft.EntityFrameworkCore.DistributedCache</PackageProjectUrl>
   </PropertyGroup>
   
 
   <ItemGroup>
-    <PackageReference Include="CloneExtensions" Version="1.4.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="2.2.6" />
     <PackageReference Include="Newtonsoft.Json" Version="12.0.2" />
     <PackageReference Include="StackExchange.Redis" Version="2.0.601" />
