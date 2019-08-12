@@ -67,7 +67,12 @@ namespace EFCore.AsCaching
 
             var cacheKey = GetCacheKey(query);
 
-            var valuesTask = _cacheProvider.FetchObjectWithLockAsync(cacheKey, () => base.ExecuteAsync<TResult>(query).ToList(), options.Expiry);
+            Task<List<TResult>> valuesTask;
+
+            if (options.DistributedLock)
+                valuesTask = _cacheProvider.FetchObjectWithLockAsync(cacheKey, () => base.ExecuteAsync<TResult>(query).ToList(), options.Expiry);
+            else
+                valuesTask = _cacheProvider.FetchObjectAsync(cacheKey, () => base.ExecuteAsync<TResult>(query).ToList(), options.Expiry);
 
             //Tricky implementation with custom implementation of AsyncEnumerable with by pass async function inside async iterator, and make code path async all the way down 
             //If execute in current block, we can't await here, and any wait method will blocks thread. 
@@ -84,7 +89,10 @@ namespace EFCore.AsCaching
 
             var cacheKey = GetCacheKey(query);
 
-            return _cacheProvider.FetchObjectWithLock(cacheKey, () => base.Execute<TResult>(query), options.Expiry);
+            if (options.DistributedLock)
+                return _cacheProvider.FetchObjectWithLock(cacheKey, () => base.Execute<TResult>(query), options.Expiry);
+
+            return _cacheProvider.FetchObject(cacheKey, () => base.Execute<TResult>(query), options.Expiry);
         }
 
 
@@ -97,8 +105,10 @@ namespace EFCore.AsCaching
                 return await base.ExecuteAsync<TResult>(query, cancellationToken);
 
             var cacheKey = GetCacheKey(query);
+            if (options.DistributedLock)
+                return await _cacheProvider.FetchObjectWithLockAsync(cacheKey, () => base.ExecuteAsync<TResult>(query, cancellationToken), options.Expiry);
 
-            return await _cacheProvider.FetchObjectWithLockAsync(cacheKey, () => base.ExecuteAsync<TResult>(query, cancellationToken), options.Expiry);
+            return await _cacheProvider.FetchObjectAsync(cacheKey, () => base.ExecuteAsync<TResult>(query, cancellationToken), options.Expiry);
         }
 
         private string GetCacheKey(Expression query)

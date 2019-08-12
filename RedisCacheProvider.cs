@@ -9,43 +9,17 @@ using StackExchange.Redis;
 
 namespace EFCore.AsCaching
 {
-    public class RoundRobinList<T>
-    {
-        private readonly IList<T> _list;
-        private int _size;
-        private int _position;
-
-        public RoundRobinList()
-        {
-            _list = new List<T>();
-            _size = _list.Count;
-        }
-
-        public T Next()
-        {
-            if (_size == 1)
-                return _list[0];
-
-            Interlocked.Increment(ref _position);
-            var mod = _position % _size;
-            return _list[mod];
-        }
-
-        public void Add(T value)
-        {
-            _list.Add(value);
-            _size = _list.Count;
-        }
-    }
-
     public class RedisCacheProvider : ICacheProvider
     {
-        static readonly SemaphoreSlim SemaphoreSlim = new SemaphoreSlim(1, 1);
+        static readonly SemaphoreSlim SemaphoreSlimFetchObject = new SemaphoreSlim(1, 1);
+        static readonly SemaphoreSlim SemaphoreSlimFetchObjectAsync = new SemaphoreSlim(1, 1);
+        static readonly SemaphoreSlim SemaphoreSlimFetchObjectWithLock = new SemaphoreSlim(1, 1);
+        static readonly SemaphoreSlim SemaphoreSlimFetchObjectWithLockAsync = new SemaphoreSlim(1, 1);
 
-        public IDatabase Db => _connectionMultiplexersPool.Next().GetDatabase();
+        private readonly ConnectionMultiplexer _connectionMultiplexer;
+        public IDatabase Db => _connectionMultiplexer.GetDatabase();
         private readonly JsonSerializerSettings _jsonSerializerSettings;
-
-        private readonly RoundRobinList<ConnectionMultiplexer> _connectionMultiplexersPool = new RoundRobinList<ConnectionMultiplexer>();
+        private readonly string _token = Guid.NewGuid().ToString();//To be unique on each server, node for distributed lock
 
         public RedisCacheProvider(string connectionString) : this(connectionString, new JsonSerializerSettings())
         {
@@ -54,30 +28,21 @@ namespace EFCore.AsCaching
 
         public RedisCacheProvider(string connectionString, JsonSerializerSettings jsonSerializerSettings)
         {
-            var connectionMultiplexer = ConnectionMultiplexer.ConnectAsync(connectionString).GetAwaiter().GetResult();
-            _connectionMultiplexersPool.Add(connectionMultiplexer);
-
-//            Parallel.For(0, 100, num =>
-//            {
-//                var connectionMultiplexer = ConnectionMultiplexer.ConnectAsync(connectionString).GetAwaiter().GetResult();
-//                _connectionMultiplexersPool.Add(connectionMultiplexer);
-//            });
-
-
+            _connectionMultiplexer = ConnectionMultiplexer.Connect(connectionString);
             _jsonSerializerSettings = jsonSerializerSettings;
         }
 
 
         public TEntity Get<TEntity>(string key)
         {
-            var value = Db.StringGet(key);
+            var value = Db.StringGet(key, CommandFlags.PreferSlave);
 
             return value.HasValue ? JsonConvert.DeserializeObject<TEntity>(value) : default;
         }
 
         public async Task<TEntity> GetAsync<TEntity>(string key)
         {
-            var value = await Db.StringGetAsync(key);
+            var value = await Db.StringGetAsync(key, CommandFlags.PreferSlave);
 
             return value.HasValue ? JsonConvert.DeserializeObject<TEntity>(value, _jsonSerializerSettings) : default;
         }
@@ -98,34 +63,10 @@ namespace EFCore.AsCaching
 
         public TEntity FetchObject<TEntity>(string key, Func<TEntity> func, TimeSpan? expiry = null)
         {
-            var value = Db.StringGet(key);
-
-            if (value.HasValue)
-                return JsonConvert.DeserializeObject<TEntity>(value);
-
-            var result = func.Invoke();
-
-            return Set(key, result, expiry);
-        }
-
-        public async Task<TEntity> FetchObjectAsync<TEntity>(string key, Func<Task<TEntity>> func, TimeSpan? expiry = null)
-        {
-            var value = await Db.StringGetAsync(key);
-
-            if (value.HasValue)
-                return JsonConvert.DeserializeObject<TEntity>(value);
-
-            var result = await func.Invoke();
-
-            return await SetAsync(key, result, expiry);
-        }
-
-        public TEntity FetchObjectWithLock<TEntity>(string key, Func<TEntity> func, TimeSpan? expiry = null)
-        {
-            SemaphoreSlim.Wait();
+            SemaphoreSlimFetchObject.Wait();
             try
             {
-                var value = Db.StringGet(key);
+                var value = Db.StringGet(key, CommandFlags.PreferSlave);
 
                 if (value.HasValue)
                     return JsonConvert.DeserializeObject<TEntity>(value);
@@ -136,16 +77,16 @@ namespace EFCore.AsCaching
             }
             finally
             {
-                SemaphoreSlim.Release();
+                SemaphoreSlimFetchObject.Release();
             }
         }
 
-        public async Task<TEntity> FetchObjectWithLockAsync<TEntity>(string key, Func<Task<TEntity>> func, TimeSpan? expiry = null)
+        public async Task<TEntity> FetchObjectAsync<TEntity>(string key, Func<Task<TEntity>> func, TimeSpan? expiry = null)
         {
-            await SemaphoreSlim.WaitAsync();
+            await SemaphoreSlimFetchObjectAsync.WaitAsync();
             try
             {
-                var value = await Db.StringGetAsync(key);
+                var value = await Db.StringGetAsync(key, CommandFlags.PreferSlave);
 
                 if (value.HasValue)
                     return JsonConvert.DeserializeObject<TEntity>(value);
@@ -156,7 +97,88 @@ namespace EFCore.AsCaching
             }
             finally
             {
-                SemaphoreSlim.Release();
+                SemaphoreSlimFetchObjectAsync.Release();
+            }
+        }
+
+        public TEntity FetchObjectWithLock<TEntity>(string key, Func<TEntity> func, TimeSpan? expiry = null)
+        {
+            var token = _token + "FetchObjectWithLock";
+            var lockKey = key + "_LockKey";
+
+            SemaphoreSlimFetchObjectWithLock.Wait();
+            try
+            {
+                var value = Db.StringGet(key, CommandFlags.PreferSlave);
+
+                if (value.HasValue)
+                    return JsonConvert.DeserializeObject<TEntity>(value);
+
+                if (Db.LockTake(lockKey, token, TimeSpan.FromSeconds(60)))
+                {
+                    try
+                    {
+                        var result = func.Invoke();
+
+                        return Set(key, result, expiry);
+                    }
+                    finally
+                    {
+                        Db.LockRelease(lockKey, token);
+                    }
+                }
+                else
+                {
+                    while ((Db.LockQuery(lockKey)).HasValue)
+                        Task.Delay(10).GetAwaiter().GetResult();
+
+                    return Get<TEntity>(key);
+                }
+            }
+            finally
+            {
+                SemaphoreSlimFetchObjectWithLock.Release();
+            }
+        }
+
+        public async Task<TEntity> FetchObjectWithLockAsync<TEntity>(string key, Func<Task<TEntity>> func, TimeSpan? expiry = null)
+        {
+            var token = _token + "FetchObjectWithLockAsync";
+            var lockKey = key + "_LockKey";
+
+            await SemaphoreSlimFetchObjectWithLockAsync.WaitAsync();
+            try
+            {
+                var value = await Db.StringGetAsync(key, CommandFlags.PreferSlave);
+
+                if (value.HasValue)
+                    return JsonConvert.DeserializeObject<TEntity>(value);
+
+
+                if (await Db.LockTakeAsync(lockKey, token, TimeSpan.FromSeconds(60)))
+                {
+                    try
+                    {
+                        var result = await func.Invoke();
+
+                        return await SetAsync(key, result, expiry);
+                    }
+                    finally
+                    {
+                        await Db.LockReleaseAsync(lockKey, token);
+                    }
+                }
+                else
+                {
+                    while ((await Db.LockQueryAsync(lockKey)).HasValue)
+                        await Task.Delay(10);
+
+                    return await GetAsync<TEntity>(key);
+                }
+            }
+            finally
+            {
+                SemaphoreSlimFetchObjectWithLockAsync.Release();
             }
         }
 
