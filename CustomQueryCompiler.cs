@@ -68,7 +68,7 @@ namespace EFCore.AsCaching
             var cacheKey = GetCacheKey(query);
 
             var valuesTask = _cacheProvider.FetchObjectWithLockAsync(cacheKey, () => base.ExecuteAsync<TResult>(query).ToList(), options.Expiry);
-            
+
             //Tricky implementation with custom implementation of AsyncEnumerable with by pass async function inside async iterator, and make code path async all the way down 
             //If execute in current block, we can't await here, and any wait method will blocks thread. 
             return new MyAsyncEnumerable<TResult>(valuesTask);
@@ -82,16 +82,9 @@ namespace EFCore.AsCaching
             if (!asCaching)
                 return base.Execute<TResult>(query);
 
-
             var cacheKey = GetCacheKey(query);
 
-
-            if (_cacheProvider.KeyExists(cacheKey))
-                return _cacheProvider.Get<TResult>(cacheKey);
-
-            var result = base.Execute<TResult>(query);
-
-            return _cacheProvider.Set(cacheKey, result, options.Expiry);
+            return _cacheProvider.FetchObjectWithLock(cacheKey, () => base.Execute<TResult>(query), options.Expiry);
         }
 
 
@@ -105,12 +98,7 @@ namespace EFCore.AsCaching
 
             var cacheKey = GetCacheKey(query);
 
-            if (await _cacheProvider.KeyExistsAsync(cacheKey))
-                return await _cacheProvider.GetAsync<TResult>(cacheKey);
-
-            var result = await base.ExecuteAsync<TResult>(query, cancellationToken);
-
-            return _cacheProvider.Set(cacheKey, result, options.Expiry);
+            return await _cacheProvider.FetchObjectWithLockAsync(cacheKey, () => base.ExecuteAsync<TResult>(query, cancellationToken), options.Expiry);
         }
 
         private string GetCacheKey(Expression query)
