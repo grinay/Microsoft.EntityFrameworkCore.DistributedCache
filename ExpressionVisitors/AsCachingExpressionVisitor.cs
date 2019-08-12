@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Linq;
 using System.Linq.Expressions;
-using EntityFrameworkQueryableExtensions = EntityFramework.DistributedCache.Extensions.EntityFrameworkQueryableExtensions;
 
-namespace EntityFramework.DistributedCache.ExpressionVisitors
+namespace Microsoft.EntityFrameworkCore.DistributedCache.ExpressionVisitors
 {
     public class AsCachingExpressionVisitor : ExpressionVisitor
     {
@@ -20,7 +19,7 @@ namespace EntityFramework.DistributedCache.ExpressionVisitors
             {
                 var genericMethodDefinition = node.Method.GetGenericMethodDefinition();
 
-                if (genericMethodDefinition == EntityFrameworkQueryableExtensions.AsCachingMethodInfo)
+                if (genericMethodDefinition == Extensions.EntityFrameworkQueryableExtensions.AsCachingMethodInfo)
                 {
                     // get parameter with "last one win"
                     _options = node.Arguments

@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace EntityFramework.DistributedCache
+namespace Microsoft.EntityFrameworkCore.DistributedCache
 {
     /// <summary>
     /// Options how to handle result caching.

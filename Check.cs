@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace EntityFramework.DistributedCache
+namespace Microsoft.EntityFrameworkCore.DistributedCache
 {
     /// <summary>
     /// Helper class to check parameter.

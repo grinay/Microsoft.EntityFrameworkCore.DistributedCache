@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading.Tasks;
 
-namespace EntityFramework.DistributedCache
+namespace Microsoft.EntityFrameworkCore.DistributedCache
 {
     /// <summary>
     /// A cache provider to store and receive query results./>

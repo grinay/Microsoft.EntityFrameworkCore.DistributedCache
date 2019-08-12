@@ -14,7 +14,7 @@ public void ConfigureServices(IServiceCollection services) {
         //Do not use like that 
         //options.UseDistributedSecondLevelCache(new RedisCacheProvider);
         //This method called with every request, and it will spawn many redis cache instances
-        options.UseDistributedSecondLevelCache(cacheProvider);
+        options.UseDistributedCache(cacheProvider);
     });
 
     services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2).AddControllersAsServices();

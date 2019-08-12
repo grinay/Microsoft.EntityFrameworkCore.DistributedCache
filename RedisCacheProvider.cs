@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using StackExchange.Redis;
 
-namespace EntityFramework.DistributedCache
+namespace Microsoft.EntityFrameworkCore.DistributedCache
 {
     public class RedisCacheProvider : ICacheProvider
     {

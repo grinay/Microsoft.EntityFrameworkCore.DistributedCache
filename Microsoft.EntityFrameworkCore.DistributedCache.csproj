@@ -9,7 +9,7 @@
     <PackageTags>EntityFrameworkCore Entity Framework Core EFCore EF Core DistributedRedisCache DistributedCache Distributed Cache extensions</PackageTags>
     <RepositoryUrl>https://github.com/grinay/Microsoft.EntityFrameworkCore.DistributedCache</RepositoryUrl>
     <PackageProjectUrl>https://github.com/grinay/Microsoft.EntityFrameworkCore.DistributedCache</PackageProjectUrl>
-    <PackageVersion>1.0.1</PackageVersion>
+    <PackageVersion>1.0.2</PackageVersion>
   </PropertyGroup>
   
 

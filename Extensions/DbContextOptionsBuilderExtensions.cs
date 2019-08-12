@@ -1,12 +1,11 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
+﻿using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query.Internal;
 
-namespace EntityFramework.DistributedCache.Extensions
+namespace Microsoft.EntityFrameworkCore.DistributedCache.Extensions
 {
     public static class DbContextOptionsBuilderExtensions
     {
-        public static DbContextOptionsBuilder UseDistributedSecondLevelCache(this DbContextOptionsBuilder optionsBuilder, ICacheProvider cacheProvider)
+        public static DbContextOptionsBuilder UseDistributedCache(this DbContextOptionsBuilder optionsBuilder, ICacheProvider cacheProvider)
         {
             optionsBuilder.ReplaceService<IQueryCompiler, CustomQueryCompiler>();
 
