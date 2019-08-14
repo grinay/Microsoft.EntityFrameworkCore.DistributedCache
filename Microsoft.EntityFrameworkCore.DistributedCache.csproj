@@ -9,7 +9,11 @@
     <PackageTags>EntityFrameworkCore Entity Framework Core EFCore EF Core DistributedRedisCache DistributedCache Distributed Cache extensions</PackageTags>
     <RepositoryUrl>https://github.com/grinay/Microsoft.EntityFrameworkCore.DistributedCache</RepositoryUrl>
     <PackageProjectUrl>https://github.com/grinay/Microsoft.EntityFrameworkCore.DistributedCache</PackageProjectUrl>
-    <PackageVersion>1.0.3</PackageVersion>
+    <PackageVersion>1.0.4</PackageVersion>
+    <Description>An extension for caching results of queries into the Redis cache.
+This library implements asynchronous and synchronous execution.
+It supports distributed lock to be able to use cache between n-numbers of servers which runs the application and doesn’t allow any race condition for cache update.
+You can disable distributed lock in case of usage on one server.</Description>
   </PropertyGroup>
   
 
